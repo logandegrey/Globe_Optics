@@ -1,0 +1,15 @@
+{
+  "name": "geo-globe",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "concurrently -k -n web,api,ingest -c cyan,green,magenta \"pnpm --filter @geo-globe/web dev\" \"pnpm --filter @geo-globe/api dev\" \"pnpm --filter @geo-globe/ingest dev\"",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1",
+    "typescript": "^5.6.2"
+  }
+}
