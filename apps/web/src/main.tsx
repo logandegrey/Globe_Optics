@@ -1,20 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { Viewer } from 'cesium';
+import { Cartesian3, Color, Viewer } from 'cesium';
+import type { TrackUpdate } from '@geo-globe/shared';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 
 import { addTilesetToScene, createCesiumViewer } from './cesium/setupCesium';
 import { getGoogleTileApiKey, loadPhotorealisticTiles } from './cesium/photorealisticTiles';
 
 type ConnectionState = 'connecting' | 'connected' | 'error';
+type BatchMessage = { type: 'tracks.batch'; updates: TrackUpdate[] };
+
+const WS_URL = import.meta.env.VITE_API_WS_URL ?? 'ws://localhost:8080?token=dev-secret';
 
 function App() {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<ConnectionState>('connecting');
   const [message, setMessage] = useState('Initializing Cesium...');
+  const [trackCount, setTrackCount] = useState(0);
 
   useEffect(() => {
     let viewer: Viewer | undefined;
+    let socket: WebSocket | undefined;
+    const entityIds = new Set<string>();
 
     async function boot() {
       if (!mapRef.current) {
@@ -30,8 +37,36 @@ function App() {
         const tileset = await loadPhotorealisticTiles(apiKey);
         await addTilesetToScene(viewer, tileset);
 
-        setStatus('connected');
-        setMessage('3D tiles are loaded.');
+        setMessage('3D tiles are loaded. Connecting to track stream...');
+        socket = connectTrackStream((updates) => {
+          if (!viewer) {
+            return;
+          }
+
+          for (const update of updates) {
+            const entity = viewer.entities.getById(update.trackId);
+
+            if (entity) {
+              entity.position = Cartesian3.fromDegrees(update.lng, update.lat, 200);
+              entity.name = update.label;
+            } else {
+              viewer.entities.add({
+                id: update.trackId,
+                name: update.label,
+                position: Cartesian3.fromDegrees(update.lng, update.lat, 200),
+                point: {
+                  color: Color.CYAN,
+                  pixelSize: 5
+                }
+              });
+              entityIds.add(update.trackId);
+            }
+          }
+
+          setTrackCount(entityIds.size);
+          setStatus('connected');
+          setMessage('Receiving live track updates.');
+        });
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         console.error('Failed to initialize globe:', error);
@@ -43,6 +78,10 @@ function App() {
     void boot();
 
     return () => {
+      if (socket) {
+        socket.close();
+      }
+
       if (viewer && !viewer.isDestroyed()) {
         viewer.destroy();
       }
@@ -75,11 +114,45 @@ function App() {
         <p style={{ margin: '4px 0 0 0', lineHeight: 1.35 }}>{message}</p>
 
         <hr style={{ border: 0, borderTop: '1px solid rgba(148, 163, 184, 0.4)', margin: '12px 0' }} />
-        <p style={{ margin: 0, fontWeight: 700 }}>Filter panel (placeholder)</p>
-        <p style={{ margin: '4px 0 0 0', opacity: 0.9 }}>Filtering controls will be added here.</p>
+        <p style={{ margin: 0 }}>
+          <strong>Rendered tracks:</strong> {trackCount}
+        </p>
       </section>
     </main>
   );
+}
+
+function connectTrackStream(onBatch: (updates: TrackUpdate[]) => void) {
+  const socket = new WebSocket(WS_URL);
+
+  socket.addEventListener('open', () => {
+    socket.send(JSON.stringify({ type: 'hello', maxRateHz: 1 }));
+  });
+
+  socket.addEventListener('message', (event) => {
+    const parsed = parseMessage(event.data);
+    if (parsed?.type === 'tracks.batch') {
+      onBatch(parsed.updates);
+    }
+  });
+
+  socket.addEventListener('close', () => {
+    console.warn('[web] track websocket closed');
+  });
+
+  return socket;
+}
+
+function parseMessage(value: unknown): BatchMessage | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as BatchMessage;
+  } catch {
+    return null;
+  }
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<App />);
