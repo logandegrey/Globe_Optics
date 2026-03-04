@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
 import { WebSocketServer, WebSocket } from 'ws';
-import { IngestMessageSchema, type IngestMessage } from '@geo-globe/shared';
+import { IngestMessageSchema, type IngestMessage, type TrackUpdate } from '@geo-globe/shared';
 
 type BBox = {
   minLat: number;
@@ -17,14 +17,6 @@ type HelloMessage = {
   maxRateHz?: number;
 };
 
-type TrackUpdate = {
-  trackId: string;
-  source: string;
-  timestamp: string;
-  lat: number;
-  lng: number;
-  label: string;
-};
 
 type ClientSession = {
   socket: WebSocket;
