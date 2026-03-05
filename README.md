@@ -66,3 +66,37 @@ steps:
 images:
   - us-central1-docker.pkg.dev/$PROJECT_ID/globe/api:$COMMIT_SHA
 ```
+
+### Troubleshooting: `COPY ... pnpm-lock.yaml: file does not exist`
+
+If Cloud Build fails with:
+
+```text
+COPY failed: file not found in build context or excluded by .dockerignore: stat pnpm-lock.yaml: file does not exist
+```
+
+it means Docker is being run with the **wrong build context** (usually `apps/api`, `apps/web`, or `apps/ingest` instead of the repo root).
+
+Use these rules:
+
+- Dockerfile path can be nested (`-f apps/api/Dockerfile`)
+- Build context must be the repository root (`.`)
+
+Correct examples:
+
+```bash
+# local
+docker build -f apps/api/Dockerfile -t globe-api .
+
+# Cloud Build step
+gcr.io/cloud-builders/docker build -f apps/api/Dockerfile -t us-central1-docker.pkg.dev/$PROJECT_ID/globe/api:$COMMIT_SHA .
+
+# Cloud Run source deploy (from repo root)
+gcloud run deploy globe-api --source=. --dockerfile=apps/api/Dockerfile --region=us-central1 --allow-unauthenticated
+```
+
+Common causes:
+
+- Running `gcloud builds submit apps/api` (wrong context)
+- Setting Cloud Build `dir: apps/api` (wrong context)
+- Running deploy/build from a folder that does not contain `pnpm-lock.yaml`
