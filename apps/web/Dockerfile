@@ -8,13 +8,13 @@ WORKDIR /workspace
 
 RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/web/package.json apps/web/tsconfig.json apps/web/tsconfig.app.json apps/web/vite.config.ts apps/web/index.html ./apps/web/
 COPY packages/shared/package.json packages/shared/tsconfig.json ./packages/shared/
 COPY apps/web/src ./apps/web/src
 COPY packages/shared/src ./packages/shared/src
 
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @geo-globe/shared build && pnpm --filter @geo-globe/web build
 
 FROM node:22-bookworm-slim AS runtime
