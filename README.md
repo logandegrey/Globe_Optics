@@ -1,5 +1,23 @@
 # Globe Optics
 
+
+## Dependency lockfile policy
+
+- `pnpm-lock.yaml` is required and must be committed at the repository root.
+- Any dependency change in any workspace package (`apps/*` or `packages/*`) must include an updated `pnpm-lock.yaml` in the same PR.
+- Docker builds now use frozen lockfile installs (`pnpm install --frozen-lockfile`), so stale lockfiles will fail image builds.
+
+### Workspace filter sanity checks
+
+Use these filters for targeted commands:
+
+```bash
+pnpm --filter @geo-globe/shared build
+pnpm --filter @geo-globe/api build
+pnpm --filter @geo-globe/web build
+pnpm --filter @geo-globe/ingest build
+```
+
 ## Deployment (Docker build context)
 
 All service Dockerfiles (`apps/api/Dockerfile`, `apps/web/Dockerfile`, `apps/ingest/Dockerfile`) copy workspace-level files such as `package.json`, `pnpm-workspace.yaml`, and `packages/shared`. Build them with the **repository root** as the Docker context.

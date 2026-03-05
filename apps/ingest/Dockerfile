@@ -8,13 +8,13 @@ WORKDIR /workspace
 
 RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY apps/ingest/package.json apps/ingest/tsconfig.json ./apps/ingest/
 COPY packages/shared/package.json packages/shared/tsconfig.json ./packages/shared/
 COPY apps/ingest/src ./apps/ingest/src
 COPY packages/shared/src ./packages/shared/src
 
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @geo-globe/shared build && pnpm --filter @geo-globe/ingest build
 
 FROM node:22-bookworm-slim AS runtime
@@ -23,11 +23,11 @@ ENV NODE_ENV=production
 
 RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/ingest/package.json ./apps/ingest/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 
-RUN pnpm install --prod --filter @geo-globe/ingest... --no-frozen-lockfile
+RUN pnpm install --prod --filter @geo-globe/ingest... --frozen-lockfile
 
 COPY --from=builder /workspace/apps/ingest/dist ./apps/ingest/dist
 COPY --from=builder /workspace/packages/shared/dist ./packages/shared/dist
